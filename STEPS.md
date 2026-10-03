@@ -5,6 +5,7 @@
 - `npm run dev`: play in the browser
 - `npm run play`: play against the bots in the terminal (`npm run play -- --auto` lets a bot take your seat)
 - `npm run play -- --llm`: every bot asks Claude Haiku 4.5 for its moves (needs `ANTHROPIC_API_KEY`; add `--hands N` to cap the game)
+- `npm run play -- --record`: print each hand's record as JSON (fields in `src/record/recorder.ts`; your player_id is `POKER_PLAYER_ID`, default `you`)
 - `npm test`: engine tests (Node's built-in runner)
 - `npm run typecheck`: checks types
 

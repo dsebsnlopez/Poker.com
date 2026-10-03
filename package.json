@@ -9,7 +9,7 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "play": "tsx src/engine/play.ts",
-    "test": "tsx --test src/engine/*.test.ts",
+    "test": "tsx --test src/**/*.test.ts",
     "typecheck": "tsc -b"
   },
   "dependencies": {

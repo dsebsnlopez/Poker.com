@@ -38,6 +38,7 @@ export interface LogEntry {
   playerId: string;
   street: Street;
   action: Action;
+  amount: number; // chips this action put in
 }
 
 export interface Winner {

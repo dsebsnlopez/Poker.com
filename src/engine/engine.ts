@@ -141,6 +141,7 @@ export function applyAction(prev: GameState, playerId: string, action: Action): 
   const s = structuredClone(prev);
   const p = currentPlayer(s);
   const legal = legalActions(s);
+  const paidBefore = p.totalBet;
 
   switch (action.type) {
     case 'fold': // worked example
@@ -174,7 +175,7 @@ export function applyAction(prev: GameState, playerId: string, action: Action): 
     }
   }
   p.hasActed = true;
-  s.log.push({ playerId: p.id, street: s.street, action });
+  s.log.push({ playerId: p.id, street: s.street, action, amount: p.totalBet - paidBefore });
 
   // After any action, exactly one of three things happens:
   const remaining = s.players.filter((x) => !x.folded);

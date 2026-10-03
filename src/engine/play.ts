@@ -3,7 +3,10 @@
 //   --auto       a bot takes your seat; watch a whole game
 //   --llm        every bot asks Claude for its moves (needs ANTHROPIC_API_KEY)
 //   --hands N    stop after N hands
+//   --record     print each finished hand's record (see src/record/recorder.ts) as JSON
+// Your player_id is POKER_PLAYER_ID if set, otherwise "you".
 import { createInterface } from 'node:readline/promises';
+import { HandRecorder } from '../record/recorder';
 import { type Bot, createHardBot, easyBot, mediumBot, runBot } from './bots';
 import { applyAction, createGame, currentPlayer, legalActions, startHand } from './engine';
 import { createLlmBot, LLM_MODEL, llmCost, llmUsage } from './llmBot';
@@ -13,6 +16,9 @@ const args = process.argv.slice(2);
 const auto = args.includes('--auto');
 const llm = args.includes('--llm');
 const maxHands = args.includes('--hands') ? Number(args[args.indexOf('--hands') + 1]) : Infinity;
+const HUMAN = process.env.POKER_PLAYER_ID || 'you';
+const printRecords = args.includes('--record');
+const recorder = new HandRecorder();
 
 if (llm && !process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
   console.error('--llm needs an Anthropic API key: export ANTHROPIC_API_KEY=sk-ant-... and run again.');
@@ -31,18 +37,18 @@ function print(s: GameState): void {
   });
 }
 
-const names: Record<string, string> = { you: 'You', potato: 'Potato', peanut: 'Peanut', onion: 'Onion' };
+const names: Record<string, string> = { [HUMAN]: 'You', potato: 'Potato', peanut: 'Peanut', onion: 'Onion' };
 const say = (id: string, line: string) => !auto && console.log(`  ${names[id]}: "${line}"`);
 
 const bots: Record<string, Bot> = llm
   ? {
-      you: createLlmBot({ style: 'solid and balanced, plays good hands hard', onSay: say }), // only used with --auto
+      [HUMAN]: createLlmBot({ style: 'solid and balanced, plays good hands hard', onSay: say }), // only used with --auto
       potato: createLlmBot({ style: 'loose and chatty; loves to see flops and hates folding', onSay: say }),
       peanut: createLlmBot({ style: 'balanced and thoughtful; mixes in the occasional bluff', onSay: say }),
       onion: createLlmBot({ style: 'tight and aggressive; folds a lot, but bets big when it plays', onSay: say }),
     }
   : {
-      you: mediumBot, // only used with --auto
+      [HUMAN]: mediumBot, // only used with --auto
       potato: easyBot,
       peanut: mediumBot,
       onion: createHardBot(),
@@ -83,7 +89,10 @@ async function ask(s: GameState): Promise<Action | null> {
 }
 
 async function playHand(state: GameState): Promise<GameState> {
+  const before = state;
+  const startedAt = new Date();
   state = startHand(state);
+  recorder.handStarted(before, state, startedAt);
   if (!auto) print(state);
   while (!state.handOver) {
     const p = currentPlayer(state);
@@ -91,6 +100,7 @@ async function playHand(state: GameState): Promise<GameState> {
     if (!action) continue;
     try {
       state = applyAction(state, p.id, action);
+      recorder.actionApplied(state);
     } catch (e) {
       if (p.isBot || auto) throw e;
       console.log((e as Error).message); // illegal human move: ask again
@@ -101,6 +111,8 @@ async function playHand(state: GameState): Promise<GameState> {
       print(state);
     }
   }
+  const record = recorder.handFinished(state);
+  if (printRecords) console.log(JSON.stringify(record, null, 2));
   return state;
 }
 
@@ -112,7 +124,7 @@ function describeWinners(s: GameState): string {
 const playersLeft = (s: GameState): Player[] => s.players.filter((p) => p.chips > 0);
 
 let state = createGame([
-  { id: 'you', name: 'You', isBot: false },
+  { id: HUMAN, name: 'You', isBot: false },
   { id: 'potato', name: 'Potato', isBot: true },
   { id: 'peanut', name: 'Peanut', isBot: true },
   { id: 'onion', name: 'Onion', isBot: true },
